@@ -1,2 +1,3 @@
 # DA-STATS
-This is a repository about my Statistics Basics course preclass and postclass.
+
+This is a repository about preclass and postclass lab documenatation of my Statics Basics Course.
