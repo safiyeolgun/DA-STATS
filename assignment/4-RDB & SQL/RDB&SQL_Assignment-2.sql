@@ -48,7 +48,7 @@ WHERE product_name = 'Polk Audio - 50 W Woofer - Black'
 ORDER BY c.customer_id;
 
 
---finding with who buy 'TB...' but not buy 'Polk...' CTEs
+--reporting customers who buy 'TB...' whether buy or not 'Polk...' with CTEs
 WITH 
 T1 AS (
 		SELECT c.customer_id, first_name, last_name, oi.product_id, product_name
@@ -67,12 +67,6 @@ T3 AS (
 		FROM T1
 		WHERE product_name = 'Polk Audio - 50 W Woofer - Black'
 )
-,
-MatchTable AS (
-SELECT T2.customer_id
-FROM T2, T3
-WHERE T2.customer_id = T3.customer_id
-)
 SELECT DISTINCT 
 			T2.customer_id Customer_Id, 
 			T2.first_name First_Name, 
@@ -84,6 +78,63 @@ SELECT DISTINCT
 FROM T2
 LEFT JOIN T3 ON T2.customer_id = T3.customer_id
 ORDER BY T2.customer_id;
+
+
+
+--ALTERNATE SOLUTION 2: with view
+
+-- joining sale.order, sale.customer, sale.order_items ans product.product and creating view
+CREATE VIEW vw_orders_customers_product AS 
+		SELECT DISTINCT c.customer_id, first_name, last_name, oi.product_id, product_name
+		FROM sale.orders o
+		INNER JOIN sale.customer c ON o.customer_id = c.customer_id
+		INNER JOIN sale.order_item oi ON o.order_id = oi.order_id
+		INNER JOIN product.product p  ON oi.product_id = p.product_id
+
+
+----------------reporting customers who buy 'TB...' whether buy or not 'Polk...' with view
+SELECT	customer_id Customer_Id, 
+		first_name First_Name, 
+		last_name Last_Name, 
+		CASE WHEN(COUNT(customer_id) = 2 ) then 'Yes'
+		ELSE 'No'
+		END Other_Product		
+FROM (
+		SELECT  *
+		FROM vw_orders_customers_product
+		WHERE product_name ='2TB Red 5400 rpm SATA III 3.5 Internal NAS HDD'
+		OR product_name ='Polk Audio - 50 W Woofer - Black') pro
+WHERE customer_id IN 
+			(SELECT customer_id
+			FROM vw_orders_customers_product
+			WHERE product_name ='2TB Red 5400 rpm SATA III 3.5 Internal NAS HDD')
+GROUP BY customer_id, first_name, last_name;
+
+
+
+--ALTERNATE SOLUTION 3: with views
+
+-- creating view of customers who buy '2TB Red..'  
+CREATE VIEW vw_ocp_2TB AS
+		SELECT DISTINCT *
+		FROM  vw_orders_customers_product  --- this view comes from solution of above
+		WHERE customer_id IN (SELECT customer_id					
+								FROM vw_orders_customers_product
+								WHERE product_name = '2TB Red 5400 rpm SATA III 3.5 Internal NAS HDD')
+
+----------------reporting customers who buy 'TB...' whether buy or not 'Polk...' with views
+SELECT	DISTINCT	customer_id Customer_Id, 
+					first_name First_Name, 
+					last_name Last_Name,
+		CASE WHEN	(customer_id IN  
+								(SELECT customer_id FROM vw_ocp_2TB
+								WHERE product_name = 'Polk Audio - 50 W Woofer - Black')  
+					) then 'Yes'
+		ELSE 'No'
+		END Other_Product
+FROM vw_ocp_2TB; 
+
+
 
 
 
@@ -120,14 +171,14 @@ INSERT [dbo].[Actions] VALUES
 (10, N'A', N'Review');
 GO
 
---ALTERNATE SOLUTION: creating table with primarily key
+--ALTERNATE SOLUTION 2: creating table with primarily key
 CREATE TABLE Actions(
 Visitor_ID INT IDENTITY (1, 1) PRIMARY KEY,
 Adv_Type CHAR(1) NOT NULL,
 Action VARCHAR(10) NOT NULL
 );
 
---ALTERNATE SOLUTION: inserting values into table with primarily key values 
+--ALTERNATE SOLUTION 2: inserting values into table with primarily key values 
 SET IDENTITY_INSERT Actions ON;
 INSERT [dbo].[Actions] ([Visitor_ID], [Adv_Type], [Action] ) VALUES(1, N'A', N'Left')
 INSERT [dbo].[Actions] ([Visitor_ID], [Adv_Type], [Action] ) VALUES(2, N'A', N'Order')
@@ -179,7 +230,7 @@ WHERE [Action] = 'Order'
 GROUP BY Adv_Type;
 
 
---finding total advertisement with order action by Adv_type 
+--finding order action with total advertisement by Adv_type 
 SELECT Adv_Type, 
 		COUNT(CASE WHEN [Action] = 'Order' then 1 END) total_orders,
 		COUNT(Visitor_ID) as total_actions		
@@ -194,7 +245,29 @@ GROUP BY Adv_Type;
 SELECT Adv_Type, 
        CAST(
 			COUNT(CASE WHEN Action = 'Order' THEN 1 END) * 1.0 / 
-			COUNT(Adv_Type) AS DECIMAL(3,2)
+			COUNT(Adv_Type) AS decimal(3,2) 
 			) Conversion_Rate
 FROM Actions
 GROUP BY Adv_Type;
+
+
+--ALTERNATE SOLUTION 2: with cte
+
+--calculating order actions rate
+
+WITH T1 AS	(
+			SELECT Adv_Type, COUNT(Visitor_ID) as total_actions
+			FROM Actions
+			GROUP BY Adv_Type),
+T2 AS (
+		SELECT Adv_Type, COUNT(Visitor_ID) as total_orders
+		FROM Actions
+		WHERE [Action] = 'Order'
+		GROUP BY Adv_Type)
+SELECT T1.Adv_Type, 
+		STR(T2.total_orders* 1.0 / T1.total_actions, 4,2) Conversion_Rate
+FROM T1
+		LEFT JOIN T2 ON T1.Adv_Type = T2.Adv_Type;
+
+
+
