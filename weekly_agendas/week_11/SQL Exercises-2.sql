@@ -1,4 +1,5 @@
-USE SampleRetail;
+USE SampleRetail;
+
 ---- 1. Find the store that generated the highest revenue in the 4th, 5th, and 6th months of 2019.----
 
 --looking sale.orders table for order_id, order_date, store_id
@@ -34,7 +35,7 @@ WHERE o.order_id = oi.order_id AND o.store_id = s.store_id;
 
 
 ----------finding highest revenue in the 4th, 5th, and 6th months of 2019 by store_name
-SELECT	store_name, 
+SELECT TOP 1 store_name, 
 		MAX(quantity * list_price * (1 - discount)) total_revenue
 
 FROM	sale.orders o, 
@@ -44,7 +45,8 @@ FROM	sale.orders o,
 WHERE o.order_id = oi.order_id AND o.store_id = s.store_id
 		AND order_date LIKE '2019-0[4-6]-%'
 
-GROUP BY store_name;
+GROUP BY store_name
+ORDER BY total_revenue DESC ;
 
 
 
@@ -263,7 +265,7 @@ T2 AS (
 					SELECT city
 					FROM  T1 
 					GROUP BY city
-					HAVING COUNT(*)> 15
+					HAVING COUNT(order_id)> 15
 
 )
 
