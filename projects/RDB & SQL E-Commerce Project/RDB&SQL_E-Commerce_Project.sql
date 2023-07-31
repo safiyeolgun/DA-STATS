@@ -696,11 +696,6 @@ You can use the view you got at the end of the Customer Segmentation section as 
 
 --1. Find the number of customers retained month-wise. (You can use time gaps)
 
---calculating total customer by year
-SELECT DISTINCT YEAR(order_date) [year], COUNT(customer_id) OVER(PARTITION BY YEAR(order_date)) total_customer_by_year
-FROM [order]
-ORDER BY YEAR(order_date);
-
 --creating function for last month of year
 CREATE FUNCTION dbo.GetEndDate(@start_year INT, @start_month INT)
 RETURNS TABLE AS RETURN
@@ -783,6 +778,25 @@ PIVOT (
 
 --2. Calculate the month-wise retention rate.
 --Month-Wise Retention Rate = 1.0 * Number of Customers Retained in The Current Month / Total Number of Customers in the Current Month
+
+WITH CTE AS
+(
+    SELECT DISTINCT YEAR(order_date) [year], 
+					MONTH(order_date) [month],
+					COUNT(customer_id) OVER(PARTITION BY YEAR(order_date), MONTH(order_date)) total_customer_by_month
+    FROM [order] 
+), CTE2 AS 
+(
+SELECT t.[year], t.[month],  CAST(([retention] * 1.0 / CTE.total_customer_by_month) AS DECIMAL(5,4)) retention_rate
+FROM monthly_retention_table t
+INNER JOIN CTE ON t.year = CTE.year AND t.month = CTE.month
+)
+SELECT *
+FROM CTE2
+PIVOT (
+    MAX(retention_rate)
+	FOR Month IN ([1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12])
+) AS pvt;
 
 
 
